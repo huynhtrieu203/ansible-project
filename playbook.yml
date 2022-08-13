@@ -1,0 +1,109 @@
+- name: Install wordpress in new server
+  hosts: group_instance
+    
+  tasks:
+
+  - name: Setting up variables
+    set_fact:
+      php_modules: [  'php-fpm','php-mysqlnd', 'php-curl', 'php-gd', 'php-mbstring', 'php-xml', 'php-xmlrpc', 'php-soap', 'php-intl', 'php-zip' ]
+
+      #MySQL Settings to be rendered by terraform
+      mysql_rds: ${db_RDS}  
+      mysql_db: ${db_name}
+      mysql_user: ${db_username}
+      mysql_password: ${db_user_password}
+
+  - name: Yum update
+    become: yes
+    become_method: "sudo"
+    yum:
+      name: '*'
+      state: latest
+
+  - name: install Apache server
+    become: yes
+    become_method: "sudo"
+    yum: name={{ item }} state=present
+    loop: [ 'httpd','mysql']    
+      
+ #installing php using linux-extra
+  
+  - name: Installing PHP
+    become: yes
+    become_method: "sudo"
+    shell: amazon-linux-extras enable php7.4
+
+  - name: Clean metadata
+    become: yes
+    become_method: "sudo"
+    shell: yum clean metadata
+
+
+
+  
+
+  # install php extension
+  - name: install php extensions
+    become: yes
+    become_method: "sudo"
+    yum: name={{ item }} state=present
+    loop: "{{ php_modules }}"
+
+
+  - name: Set permissions for directories
+    become: yes
+    become_method: "sudo"
+    shell: "/usr/bin/find /var/www/html/ -type d -exec chmod 2775 {} \\;"
+    
+
+  - name: Set permissions for files
+    become: yes
+    become_method: "sudo"
+    command: "chmod 755 /var/www/html"
+            
+  # wordpress download and install
+  - name: "installing httpd"
+    package:
+      name: "httpd"
+      state: present
+  
+  - name: "installing prerequisites for wordpress"
+    become: yes
+    become_method: "sudo"
+    yum:
+      name:
+        - tar
+        - mysql
+  
+  - name: "Install php7.4"
+    become: yes
+    become_method: "sudo"
+    shell: "amazon-linux-extras install -y php7.4"
+  
+  - name:  "download"
+    unarchive:
+      src: https://wordpress.org/latest.tar.gz
+      dest: "/home/ec2-user"
+      remote_src: yes
+  - name:  "copy"
+    become: yes
+    become_method: sudo
+    command: "cp -r /home/ec2-user/wordpress/. /var/www/html"
+
+
+  - name: Delete old wordpress files
+    become: yes
+    become_method: "sudo"
+    shell: rm /home/ec2-user/wordpress -r 
+
+  - name: Set up wp-config
+    become: yes
+    become_method: "sudo"
+    template:
+      src: "wp-config.php"
+      dest: "/var/www/html/wp-config.php"
+          
+  - name: services started   
+    become: yes
+    become_method: sudo
+    command: "systemctl restart httpd"
