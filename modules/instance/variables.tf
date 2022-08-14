@@ -1,7 +1,17 @@
-variable "ami_id" {
+variable "region" {
+  type    = string
+  default = "us-west-2"
+}
+
+variable "azs" {
+  type    = list(any)
+  default = ["us-west-2a", "us-west-2b"]
+}
+
+variable "ami" {
   description = "ami id"
   type        = string
-  default     = "ami-0c802847a7dd848c0"
+  default     = "ami-0cea098ed2ac54925"
 }
 
 variable "instance_type" {

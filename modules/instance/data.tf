@@ -6,10 +6,10 @@ data "aws_subnet" "public_subnet" {
   }
 }
 
-data "aws_vpc" "vpc" {
+data "aws_vpc" "my-vpc" {
   filter {
     name   = "tag:Name"
-    values = ["vpc"]
+    values = ["DemoVPC"]
   }
 }
 

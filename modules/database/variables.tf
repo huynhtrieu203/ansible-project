@@ -1,11 +1,11 @@
-variable "aws_region" {
+variable "region" {
   type    = string
-  default = "ap-southeast-1"
+  default = "us-west-2"
 }
 
-variable "availability_zone" {
+variable "az" {
   type    = list(any)
-  default = ["ap-southeast-1a", "ap-southeast-1b"]
+  default = ["us-west-2a", "us-west-2b"]
 
 }
 

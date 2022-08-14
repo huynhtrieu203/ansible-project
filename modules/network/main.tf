@@ -1,41 +1,43 @@
-// Create VPC
-resource "aws_vpc" "vpc" {
-  cidr_block           = "10.0.0.0/16"
-  enable_dns_support   = "true"
-  enable_dns_hostnames = "true"
-  enable_classiclink   = "false"
-  instance_tenancy     = "default"
-
+resource "aws_vpc" "my-vpc" {
+  cidr_block           = var.cidr_block
   tags = {
-    Name = "vpc"
+    Name = "DemoVPC"
   }
 }
 
-// Create 2 public subnet
 resource "aws_subnet" "public_subnet" {
-  vpc_id                  = aws_vpc.vpc.id
-  cidr_block              = var.public_cird[count.index]
-  map_public_ip_on_launch = "true" //Makes subnet public
-  availability_zone       = var.availability_zone[count.index]
-  count                   = length(var.public_cird)
+  vpc_id                  = aws_vpc.my-vpc.id
+  cidr_block              = var.public_subnet[count.index]
+  map_public_ip_on_launch = "true"
+  availability_zone       = var.azs[count.index]
+  count                   = length(var.public_subnet)
   tags = {
     Name = "public_subnet-${count.index}"
   }
 }
 
-// Create internet gateway to access to internet
+resource "aws_subnet" "db_private_subnet" {
+  vpc_id            = aws_vpc.my-vpc.id
+  cidr_block        = var.private_subnet[count.index]
+  availability_zone = var.azs[count.index]
+  count             = length(var.private_subnet)
+
+  tags = {
+    Name = "db_private_subnet-${count.index}"
+  }
+}
+
 resource "aws_internet_gateway" "igw" {
-  vpc_id = aws_vpc.vpc.id
+  vpc_id = aws_vpc.my-vpc.id
   tags = {
     Name = "igw"
   }
 }
 
-// Configure route table
 resource "aws_route_table" "public-crt" {
-  vpc_id = aws_vpc.vpc.id
+  vpc_id = aws_vpc.my-vpc.id
   route {
-    cidr_block = var.cidr_route
+    cidr_block = var.cidr_block_any
     gateway_id = aws_internet_gateway.igw.id
   }
   tags = {
@@ -43,41 +45,27 @@ resource "aws_route_table" "public-crt" {
   }
 }
 
-// Attach to subnet
 resource "aws_route_table_association" "crta-public" {
   subnet_id      = aws_subnet.public_subnet[count.index].id
-  count          = length(var.public_cird)
+  count          = length(var.public_subnet)
   route_table_id = aws_route_table.public-crt.id
 }
 
-// Create private subnet
-resource "aws_subnet" "db_private_subnet" {
-  vpc_id            = aws_vpc.vpc.id
-  cidr_block        = var.private_cird[count.index]
-  availability_zone = var.availability_zone[count.index]
-  count             = length(var.private_cird)
-
-  tags = {
-    Name = "db_private_subnet-${count.index}"
-  }
-}
-
-// Create ALB security group
 resource "aws_security_group" "alb_sg" {
-  vpc_id = aws_vpc.vpc.id
+  vpc_id = aws_vpc.my-vpc.id
   name   = "alb_sg"
   egress {
     from_port   = 0
     to_port     = 0
     protocol    = -1
-    cidr_blocks = ["${var.cidr_route}"]
+    cidr_blocks = ["${var.cidr_block_any}"]
   }
 
   ingress {
     from_port   = 0
     to_port     = 65535
     protocol    = "tcp"
-    cidr_blocks = ["${var.cidr_route}"]
+    cidr_blocks = ["${var.cidr_block_any}"]
   }
 
   tags = {
@@ -85,17 +73,16 @@ resource "aws_security_group" "alb_sg" {
   }
 }
 
-// Create instances security group
 resource "aws_security_group" "instances_sg" {
   description = "Allows ALB to access the EC2 instances"
   name        = "instances_sg"
-  vpc_id      = aws_vpc.vpc.id
+  vpc_id      = aws_vpc.my-vpc.id
 
   egress {
     from_port   = 0
     to_port     = 0
     protocol    = -1
-    cidr_blocks = ["${var.cidr_route}"]
+    cidr_blocks = ["${var.cidr_block_any}"]
   }
 
   ingress {
@@ -109,7 +96,7 @@ resource "aws_security_group" "instances_sg" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["${var.cidr_route}"]
+    cidr_blocks = ["${var.cidr_block_any}"]
   }
 
   # ingress {
@@ -131,11 +118,10 @@ resource "aws_security_group" "instances_sg" {
   }
 }
 
-// Create Database Security Group
 resource "aws_security_group" "rds_sg" {
   name        = "rds_sg"
   description = "Allows application to access the RDS instances"
-  vpc_id      = aws_vpc.vpc.id
+  vpc_id      = aws_vpc.my-vpc.id
 
   ingress {
     description     = "Allow traffic from application layer"
@@ -149,7 +135,7 @@ resource "aws_security_group" "rds_sg" {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
-    cidr_blocks = ["${var.cidr_route}"]
+    cidr_blocks = ["${var.cidr_block_any}"]
   }
   tags = {
     Name = "rds_sg"

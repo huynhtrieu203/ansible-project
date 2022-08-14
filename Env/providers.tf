@@ -9,6 +9,6 @@ terraform {
 
 // Define the region to create resources
 provider "aws" {
-  region = var.aws_region
+  region = var.region
 
 }
